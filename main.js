@@ -558,6 +558,40 @@ const weaponDatabase = [
     }
   ];
 
+  const fightingStyle = {
+    // The purpose of this is to essentially use the character's class to provide a weight on which weapon they should use. 
+    // Fighter has options for all of these, which actually means to me that I don't need to change its weighting at all. 
+    options: [
+      { 
+        name: "Dual Wielding", 
+        getWeight: (c) => {
+          if (c.class.name === "Ranger" || c.subclass === "College of Swords") {
+            return 5;
+          }
+          return 1;
+        }
+      },
+      {
+        name: "One Hand", 
+        getWeight: (c) => {
+          if (["Paladin", "Ranger"].includes(c.class.name) || c.subclass === "College of Swords") {
+            return 5;
+          }
+          return 1;
+        }
+      }, 
+      {
+        name: "Two Hand",
+        getWeight: (c) => {
+          if (c.class.name === "Paladin") {
+            return 5;
+          }
+          return 1;
+        }
+      }
+    ]
+  }
+
 // melee
 //   light
 //     dagger
@@ -607,32 +641,15 @@ const weaponDatabase = [
 //   A [meleeCL.twohand] ^[if (c.name == "Fighter" || c.name == "Paladin") {5} else {1}]
 
 function getDeity(character) {
-    // 1. If not a Cleric, or if Shadowheart/Minthara, return empty string or fixed god
     if (character.className !== "Cleric") return "";
     if (character.originName === "Shadowheart") return "Shar";
-    if (character.originName === "Minthara") return "Lolth"; // Though she is usually Paladin
+    if (character.race.name === "Lolth Sworn Drow") return "Lolth";
 
-    // 2. Get the list of gods for this character's subclass
     const domainOptions = clericGods[character.subclass];
     
     if (!domainOptions) return "Unknown Deity";
 
-    let totalWeight = 0;
-    const weightedList = domainOptions.map(god => {
-        const weight = god.getWeight(character);
-        totalWeight += weight;
-        return { name: god.name, weight: weight };
-    });
-
-    let randomValue = Math.random() * totalWeight;
-    for (const option of weightedList) {
-        if (randomValue < option.weight) {
-            return option.name;
-        }
-        randomValue -= option.weight;
-    }
-    
-    return weightedList[0].name;
+    return getFromWeightedList(character, domainOptions);
 }
 
 // TODO: FINISH IMPROVING THE ACTUAL SELECTION, everything after Step D is untouched
@@ -651,19 +668,15 @@ function getLoadout(char) {
     const pick = (arr) => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : null;
 
     const selectedMelee = pick(meleeOptions);
+    selectOffhand = ''; // only used if dual wielding
     const selectedRanged = pick(rangedOptions);
 
-    // D. Handle "Dual Wielding" logic (Perchance: meleeComment)
+    // TODO: INCORPORATE WEIGHTING TO ALLOW LEANING TOWARDS FIGHTING STYLE
     let meleeText = "";
     if (selectedMelee) {
         if (selectedMelee.type === "light") {
-            // Simple 50/50 chance to dual wield if the weapon is light
-            const dualWield = Math.random() > 0.5; 
-            if (dualWield) {
-                meleeText = `Dual-wielding ${selectedMelee.name}s`;
-            } else {
-                meleeText = `A ${selectedMelee.name}`;
-            }
+            selectOffhand = pick(meleeOptions.filter(w => w.type === "light"));
+            meleeText = `Dual-wielding ${selectedMelee.name} and ${selectOffhand.name}`;
         } else if (selectedMelee.type === "onehand") {
             // 50/50 chance for shield (logic can be expanded to check proficiency)
             const useShield = Math.random() > 0.5 && !["Monk", "Barbarian"].includes(char.className); 
@@ -679,4 +692,23 @@ function getLoadout(char) {
         melee: meleeText,
         ranged: selectedRanged ? selectedRanged.name : "None (or Cantrips)"
     };
+  }
+
+function getFromWeightedList(character, providedList) {
+    let totalWeight = 0;
+    const weightedList = providedList.map(entry => {
+        const weight = entry.getWeight(character);
+        totalWeight += weight;
+        return { name: entry.name, weight: weight };
+    });
+
+    let randomValue = Math.random() * totalWeight;
+    for (const option of weightedList) {
+        if (randomValue < option.weight) {
+            return option.name;
+        }
+        randomValue -= option.weight;
+    }
+    
+    return weightedList[0].name;
   }

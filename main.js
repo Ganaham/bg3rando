@@ -257,7 +257,6 @@ warlockpact = ["Pact of the Chain", "Pact of the Blade", "Pact of the Tome"]
 // Tempest Domain
 // War Domain
 // Bladesinger
-
 const martialClasses = ["Barbarian", "Fighter", "Paladin", "Ranger"];
 const martialSubclasses = ["College of Valour", "Hexblade", "Death Domain", "Tempest Domain", "War Domain"];
 
